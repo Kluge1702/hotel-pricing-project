@@ -1,7 +1,7 @@
 """
 app.py
 ------
-Interfejs Streamlit dla Hotel Gdynia (Standard 3★).
+Interfejs Streamlit dla Baltic Hotel Gdynia (Standard 3★).
 """
 
 import os
@@ -14,7 +14,7 @@ from scraper import fetch_gdynia_competitor_prices
 
 icon_path = "app_icon.png" if os.path.exists("app_icon.png") else "🏨"
 st.set_page_config(
-    page_title="Hotel 3★ – Panel Wyceny",
+    page_title="Baltic Hotel 3★ – Panel Wyceny",
     page_icon=icon_path,
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,7 +33,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🏨  Hotel Gdynia (Standard 3★) – Dynamiczna Wycena</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏨 Baltic Hotel Gdynia (Standard 3★) – Dynamiczna Wycena</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Optymalizacja stawek dobowych w oparciu o obłożenie, rynek Gdyni oraz benchmark HOLA Gdynia (3★)</div>', unsafe_allow_html=True)
 
 st.sidebar.header("⚙️ Parametry Wyceny")
@@ -102,13 +102,22 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.info(f"💡 **Uzasadnienie decyzji cenowej:**\n\n{pricing_result['uzasadnienie_decyzji']}")
 st.markdown("---")
 
+# Tabela ofert konkurencji
 st.subheader("🏢 Przejrzany Rynek Konkurencji w Gdyni (Booking.com)")
 col_l, col_r = st.columns([2, 1])
 
 with col_l:
     if "details" in comp_data and comp_data["details"]:
         df_details = pd.DataFrame(comp_data["details"])
-        df_details.columns = ["Nazwa Obiektu / Hotelu", "Cena za dobę (PLN)"]
+        
+        # Obsługa 3 kolumn (Typ, Nazwa, Cena) lub fallback do 2 kolumn
+        if "type" in df_details.columns:
+            df_details = df_details[["type", "hotel", "price"]]
+            df_details.columns = ["Typ Obiektu", "Nazwa Obiektu / Hotelu", "Cena za dobę (PLN)"]
+        else:
+            df_details = df_details[["hotel", "price"]]
+            df_details.columns = ["Nazwa Obiektu / Hotelu", "Cena za dobę (PLN)"]
+
         df_details["Cena za dobę (PLN)"] = df_details["Cena za dobę (PLN)"].apply(lambda x: f"{x:.0f} PLN")
         st.dataframe(df_details, use_container_width=True, hide_index=True)
     else:
@@ -122,6 +131,9 @@ with col_r:
     st.markdown("**Podsumowanie rynku:**")
     st.write(f"• **Przeanalizowano kart:** {comp_data.get('przejrzano_obiektow', 0)}")
     st.write(f"• **Pobrano stawek:** {comp_data.get('pobrano_cen', len(comp_data['prices']))}")
+    if "hotel_count" in comp_data and "apt_count" in comp_data:
+        st.write(f"  - Hotele: **{comp_data['hotel_count']} szt.** (śr. {comp_data.get('hotel_avg', 0):.0f} PLN)")
+        st.write(f"  - Apartamenty 2-os.: **{comp_data['apt_count']} szt.** (śr. {comp_data.get('apt_avg', 0):.0f} PLN)")
     st.write(f"• **Cena najniższa:** {comp_data['min_price']:.0f} PLN")
     st.write(f"• **Mediana rynkowa (3★):** {comp_data['median_price']:.0f} PLN")
     st.write(f"• **Cena najwyższa:** {comp_data['max_price']:.0f} PLN")
