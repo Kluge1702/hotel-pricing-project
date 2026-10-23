@@ -109,7 +109,7 @@ def calculate_room_price(
             time_multiplier = max(0.78, 1.0 - penalty)
 
     # 6. Wyznaczenie ceny końcowej i ochrona progu minimalnego
-    raw_optimal_price = base_price * occ_modifier * time_multiplier
+    raw_optimal_price = base_price * occ_multiplier * time_multiplier
 
     floor_triggered = False
     if raw_optimal_price < floor_price:
