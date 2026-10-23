@@ -1,7 +1,7 @@
 """
 app.py
 ------
-Interfejs Streamlit dla Baltic Hotel Gdynia (Standard 3★).
+Interfejs Streamlit dla Hotel Gdynia (Standard 3★).
 """
 
 import os
@@ -14,7 +14,7 @@ from scraper import fetch_gdynia_competitor_prices
 
 icon_path = "app_icon.png" if os.path.exists("app_icon.png") else "🏨"
 st.set_page_config(
-    page_title="Baltic Hotel 3★ – Panel Wyceny",
+    page_title="Hotel 3★ – Panel Wyceny",
     page_icon=icon_path,
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,7 +33,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🏨 Baltic Hotel Gdynia (Standard 3★) – Dynamiczna Wycena</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏨  Hotel Gdynia (Standard 3★) – Dynamiczna Wycena</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Optymalizacja stawek dobowych w oparciu o obłożenie, rynek Gdyni oraz benchmark HOLA Gdynia (3★)</div>', unsafe_allow_html=True)
 
 st.sidebar.header("⚙️ Parametry Wyceny")
