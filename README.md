@@ -1,2 +1,2 @@
-# baltic-hotel-pricing
-Creating a pricing app for Baltic Hotel Gdynia. It works based on scrapping data from booking. 
+# hotel-pricing-project
+Creating a pricing app for hypotetical Hotel in Gdynia. It works based on scrapping data from booking. 
