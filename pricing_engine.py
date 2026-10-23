@@ -1,7 +1,7 @@
 """
 pricing_engine.py
 -----------------
-Silnik Revenue Management dla Baltic Hotel pozycjonowanego jako standard 3★.
+Silnik Revenue Management dla   Hotel pozycjonowanego jako standard 3★.
 Wykorzystuje:
 - Dedykowany benchmark bezpośredni (Direct Anchor): HOLA Gdynia (3★)
 - Statystyczną medianę rynku 3★ (Fallback przy braku oferty Hola)
@@ -77,7 +77,7 @@ def calculate_room_price(
     # 3. Ustalenie ceny bazowej (Base Benchmark)
     is_hola_anchored = False
     if hola_price and 120.0 <= hola_price <= 1200.0:
-        # Baltic pozycjonowany w relacji do HOLA Gdynia:
+        #   pozycjonowany w relacji do HOLA Gdynia:
         # HOLA ma 65% wagi, a ogólna mediana rynku 3★ ma 35% wagi
         base_price = (hola_price * 0.65) + (median_3star * 0.35)
         is_hola_anchored = True
