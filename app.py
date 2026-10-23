@@ -2,6 +2,7 @@
 app.py
 ------
 Interfejs Streamlit dla Baltic Hotel Gdynia (Standard 3★).
+Rozdziela pobieranie rynku z Bookingu od natychmiastowego przeliczania ceny (st.form + st.session_state).
 """
 
 import os
@@ -30,39 +31,99 @@ st.markdown("""
     .metric-value-sub { font-size: 24px; font-weight: bold; color: #1F497D; }
     .badge-hola { background-color: #E8F5E9; color: #2E7D32; padding: 6px 12px; border-radius: 6px; font-weight: bold; border: 1px solid #C8E6C9; }
     .badge-fallback { background-color: #FFF3E0; color: #E65100; padding: 6px 12px; border-radius: 6px; font-weight: bold; border: 1px solid #FFE0B2; }
+    .time-badge { font-size: 12px; color: #666666; margin-top: 4px; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">🏨 Baltic Hotel Gdynia (Standard 3★) – Dynamiczna Wycena</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Optymalizacja stawek dobowych w oparciu o obłożenie, rynek Gdyni oraz benchmark HOLA Gdynia (3★)</div>', unsafe_allow_html=True)
 
-st.sidebar.header("⚙️ Parametry Wyceny")
-
+# ==============================================================================
+# 1. PAMIĘĆ SESJI (Inicjalizacja pobierania rynku)
+# ==============================================================================
 default_checkin = datetime.today() + timedelta(days=1)
-checkin_date = st.sidebar.date_input("Data rezerwacji (Check-in):", value=default_checkin, min_value=datetime.today())
+
+if "checkin_date" not in st.session_state:
+    st.session_state["checkin_date"] = default_checkin
+
+if "market_data" not in st.session_state:
+    st.session_state["market_data"] = None
+
+if "last_scrape_time" not in st.session_state:
+    st.session_state["last_scrape_time"] = None
+
+# ==============================================================================
+# 2. PASEK BOCZNY – SEKCJA A: ZARZĄDZANIE DANYMI Z BOOKING.COM
+# ==============================================================================
+st.sidebar.header("🌐 Rynek Konkurencji")
+
+checkin_date = st.sidebar.date_input(
+    "Data rezerwacji (Check-in):",
+    value=st.session_state["checkin_date"],
+    min_value=datetime.today()
+)
 checkout_date = checkin_date + timedelta(days=1)
 
-free_rooms = st.sidebar.slider("Liczba WOLNYCH pokoi (z 27):", min_value=0, max_value=TOTAL_ROOMS, value=8)
-selected_hour = st.sidebar.slider("Godzina analizy (0 - 23):", min_value=0, max_value=23, value=datetime.now().hour)
-floor_price = st.sidebar.number_input("Twardy próg MINIMALNY (PLN):", min_value=100.0, max_value=300.0, value=150.0, step=10.0)
+# Sprawdzenie czy użytkownik zmienił datę – jeśli tak, wymuszamy odświeżenie rynku
+if checkin_date != st.session_state["checkin_date"]:
+    st.session_state["checkin_date"] = checkin_date
+    st.session_state["market_data"] = None
+
+btn_refresh_market = st.sidebar.button("🔄 Pobierz / Odśwież rynek Booking.com", use_container_width=True)
+
+# Pobranie danych przy pierwszym wejściu lub po kliknięciu przycisku odświeżania
+if st.session_state["market_data"] is None or btn_refresh_market:
+    with st.spinner("🔍 Skanowanie rynku Gdyni (Booking.com)... Proszę czekać..."):
+        st.session_state["market_data"] = fetch_gdynia_competitor_prices(
+            checkin_date=checkin_date.strftime("%Y-%m-%d"),
+            checkout_date=checkout_date.strftime("%Y-%m-%d")
+        )
+        st.session_state["last_scrape_time"] = datetime.now().strftime("%H:%M:%S")
+
+comp_data = st.session_state["market_data"]
+
+if st.session_state["last_scrape_time"]:
+    st.sidebar.markdown(f'<div class="time-badge">🕒 Ostatnie pobranie rynku: <b>{st.session_state["last_scrape_time"]}</b></div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
-refresh_market_data = st.sidebar.button("🔄 Odśwież dane z Booking.com", use_container_width=True)
 
-@st.cache_data(ttl=1800)
-def get_cached_competitor_data(in_date: str, out_date: str):
-    return fetch_gdynia_competitor_prices(checkin_date=in_date, checkout_date=out_date)
+# ==============================================================================
+# 3. PASEK BOCZNY – SEKCJA B: FORMULARZ WYCENY BALTIC HOTEL (Bez scrapowania)
+# ==============================================================================
+st.sidebar.header("⚙️ Parametry Baltic Hotel")
 
-if refresh_market_data:
-    st.cache_data.clear()
-
-with st.spinner("Pobieranie aktualnych cen konkurencji z Booking.com..."):
-    comp_data = get_cached_competitor_data(
-        in_date=checkin_date.strftime("%Y-%m-%d"),
-        out_date=checkout_date.strftime("%Y-%m-%d")
+with st.sidebar.form("pricing_form"):
+    free_rooms = st.slider(
+        "Liczba WOLNYCH pokoi (z 27):",
+        min_value=0,
+        max_value=TOTAL_ROOMS,
+        value=8,
+        help="Wybierz ile pokoi pozostało do sprzedaży na tę dobę."
     )
 
-# Wyliczenie ceny z uwzględnieniem danych HOLA Gdynia
+    selected_hour = st.slider(
+        "Godzina analizy (0 - 23):",
+        min_value=0,
+        max_value=23,
+        value=datetime.now().hour,
+        help="Godzina doby – wieczorem uruchamia się presja czasu."
+    )
+
+    floor_price = st.number_input(
+        "Twardy próg MINIMALNY (PLN):",
+        min_value=100.0,
+        max_value=300.0,
+        value=150.0,
+        step=10.0,
+        help="Cena minimalna, poniżej której system nie pozwoli zejść."
+    )
+
+    # Przycisk zatwierdzenia formularza – przelicza natychmiast
+    btn_recalculate = st.form_submit_button("⚡ PRZELICZ CENĘ (błyskawicznie)", use_container_width=True, type="primary")
+
+# ==============================================================================
+# 4. OBLICZENIA REVENUE MANAGEMENT (Wykonywane w pamięci w 0.001 s)
+# ==============================================================================
 pricing_result = calculate_room_price(
     free_rooms=free_rooms,
     current_hour=selected_hour,
@@ -72,7 +133,9 @@ pricing_result = calculate_room_price(
     competitor_details=comp_data.get("details")
 )
 
-# Status pobierania
+# ==============================================================================
+# 5. PREZENTACJA WYNIKÓW
+# ==============================================================================
 col_stat1, col_stat2 = st.columns([3, 1])
 with col_stat1:
     if comp_data["source"] == "booking_live":
@@ -102,7 +165,9 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.info(f"💡 **Uzasadnienie decyzji cenowej:**\n\n{pricing_result['uzasadnienie_decyzji']}")
 st.markdown("---")
 
-# Tabela ofert konkurencji
+# ==============================================================================
+# 6. TABELA OFERT KONKURENCJI (3 Kolumny: Typ, Nazwa, Cena)
+# ==============================================================================
 st.subheader("🏢 Przejrzany Rynek Konkurencji w Gdyni (Booking.com)")
 col_l, col_r = st.columns([2, 1])
 
@@ -110,7 +175,7 @@ with col_l:
     if "details" in comp_data and comp_data["details"]:
         df_details = pd.DataFrame(comp_data["details"])
         
-        # Obsługa 3 kolumn (Typ, Nazwa, Cena) lub fallback do 2 kolumn
+        # Bezpieczne mapowanie kolumn odporne na błąd liczby osi
         if "type" in df_details.columns:
             df_details = df_details[["type", "hotel", "price"]]
             df_details.columns = ["Typ Obiektu", "Nazwa Obiektu / Hotelu", "Cena za dobę (PLN)"]
